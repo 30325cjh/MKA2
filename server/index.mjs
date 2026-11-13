@@ -127,7 +127,7 @@ async function handleChat(req, res) {
         sources.push(`- ${web.title || "웹 출처"}: ${web.uri}`);
       }
     }
-    if (sources.length) reply += "\\n\\n참고한 웹 출처\\n" + sources.join("\\n");
+    if (sources.length) reply += "\n\n참고한 웹 출처\n" + sources.join("\n");
     return sendJson(res, 200, { reply });
   } catch {
     return sendJson(res, 502, { error: "Gemini 서버에 연결하지 못했어요." });
