@@ -2,6 +2,8 @@ package com.mka2.assistant;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.content.pm.ApplicationInfo;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -11,6 +13,9 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import java.util.List;
+import java.util.Locale;
 
 public class ChatActivity extends Activity {
     private LinearLayout messages;
@@ -64,20 +69,57 @@ public class ChatActivity extends Activity {
         if (text.isEmpty()) return;
         input.setText("");
         addMessage(text, true);
-        String lower = text.toLowerCase();
+        String lower = text.toLowerCase(Locale.ROOT);
 
         if (lower.startsWith("검색 ") || lower.startsWith("검색해 ")) {
             String query = text.replaceFirst("^검색(해)?\\s*", "");
+            if (query.trim().isEmpty()) {
+                addMessage("무엇을 검색할까요?", false);
+                return;
+            }
             addMessage("브라우저에서 검색을 열게요.", false);
             Intent search = new Intent(Intent.ACTION_VIEW,
                     Uri.parse("https://www.google.com/search?q=" + Uri.encode(query)));
             startActivity(search);
         } else if (lower.startsWith("앱 실행 ")) {
-            String appName = text.substring("앱 실행 ".length()).trim();
-            addMessage("앱 실행은 다음 단계에서 앱 이름 검색 기능과 연결할게요. 우선 앱 이름을 확인할 수 있도록 준비 중이에요: " + appName, false);
+            launchInstalledApp(text.substring("앱 실행 ".length()).trim());
         } else {
-            addMessage("아직 AI 연결 전이에요. 다음 개발 단계에서 AI와 연결해 자유롭게 대화할 수 있게 만들게요.", false);
+            addMessage("아직 AI 연결 전이에요. AI 연결을 완료하면 자유로운 대화와 자연어 명령을 처리할 수 있어요.", false);
         }
+    }
+
+    private void launchInstalledApp(String requestedName) {
+        if (requestedName.isEmpty()) {
+            addMessage("실행할 앱 이름을 알려주세요.", false);
+            return;
+        }
+
+        PackageManager pm = getPackageManager();
+        List<ApplicationInfo> apps = pm.getInstalledApplications(PackageManager.GET_META_DATA);
+        String wanted = requestedName.toLowerCase(Locale.ROOT);
+        for (ApplicationInfo app : apps) {
+            String label = pm.getApplicationLabel(app).toString();
+            if (label.toLowerCase(Locale.ROOT).equals(wanted)) {
+                Intent launch = pm.getLaunchIntentForPackage(app.packageName);
+                if (launch != null) {
+                    addMessage(label + " 앱을 실행할게요.", false);
+                    startActivity(launch);
+                    return;
+                }
+            }
+        }
+        for (ApplicationInfo app : apps) {
+            String label = pm.getApplicationLabel(app).toString();
+            if (label.toLowerCase(Locale.ROOT).contains(wanted)) {
+                Intent launch = pm.getLaunchIntentForPackage(app.packageName);
+                if (launch != null) {
+                    addMessage(label + " 앱을 실행할게요.", false);
+                    startActivity(launch);
+                    return;
+                }
+            }
+        }
+        addMessage("'" + requestedName + "' 앱을 찾지 못했어요. 설치된 앱 이름으로 다시 말해주세요.", false);
     }
 
     private void addMessage(String text, boolean user) {
