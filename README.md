@@ -35,7 +35,7 @@ GitHub Actions also runs `assembleDebug` on pushes and pull requests.
 ## Current limitations
 - AI chat requires a deployed backend and a valid Gemini API key.
 - Conversation history is kept only while the chat activity is alive.
-- Search currently opens the browser; grounded search-result summaries are a later feature.
+- Google Search grounding is enabled in the Gemini backend; search-tool usage may incur additional charges depending on Google's current pricing.
 - Character artwork, expressions, animation, and voice interaction are not implemented yet.
 
 Package: `com.mka2.assistant`
