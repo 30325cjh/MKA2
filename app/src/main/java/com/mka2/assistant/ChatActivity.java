@@ -80,17 +80,14 @@ public class ChatActivity extends Activity {
         addMessage(text, true);
 
         String lower = text.toLowerCase(Locale.ROOT);
+        String promptText = text;
         if (lower.startsWith("검색 ") || lower.startsWith("검색해 ")) {
             String query = text.replaceFirst("^검색(해)?\\s*", "");
             if (query.trim().isEmpty()) {
                 addMessage("무엇을 검색할까요?", false);
                 return;
             }
-            addMessage("브라우저에서 검색을 열게요.", false);
-            Intent search = new Intent(Intent.ACTION_VIEW,
-                    Uri.parse("https://www.google.com/search?q=" + Uri.encode(query)));
-            startActivity(search);
-            return;
+            promptText = "웹에서 검색하고 최신 결과를 출처와 함께 요약해줘: " + query;
         }
 
         if (lower.startsWith("앱 실행 ")) {
@@ -101,7 +98,7 @@ public class ChatActivity extends Activity {
         try {
             JSONObject userMessage = new JSONObject();
             userMessage.put("role", "user");
-            userMessage.put("text", text);
+            userMessage.put("text", promptText);
             history.put(userMessage);
         } catch (Exception e) {
             addMessage("메시지를 준비하지 못했어요. 다시 시도해 주세요.", false);
