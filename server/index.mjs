@@ -12,7 +12,7 @@ const SYSTEM_INSTRUCTION = [
   "너는 MKA2라는 안드로이드 플로팅 AI 비서의 대화 엔진이다.",
   "항상 자연스럽고 친절한 한국어로 답한다. 사용자가 다른 언어를 쓰면 그 언어를 따른다.",
   "휴대폰 앱 실행이나 기기 제어는 앱이 별도로 처리하는 명령이며, 네가 직접 실행했다고 거짓말하지 않는다.",
-  "실시간 정보가 필요한데 검색 도구가 연결되어 있지 않다면 실시간으로 확인했다고 주장하지 말고 한계를 설명한다.",
+  "사용자가 검색이나 최신 정보 확인을 요청하면 Google Search 도구를 사용하고, 답변 끝에 확인 가능한 출처를 표시한다.",
   "모르는 사실은 지어내지 않는다."
 ].join("\n");
 
@@ -93,6 +93,7 @@ async function handleChat(req, res) {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: SYSTEM_INSTRUCTION }] },
           contents,
+          tools: [{ google_search: {} }],
           generationConfig: { temperature: 0.8, maxOutputTokens: 1200 }
         }),
         signal: AbortSignal.timeout(55_000)
@@ -109,12 +110,24 @@ async function handleChat(req, res) {
       });
     }
 
-    const reply = (data.candidates?.[0]?.content?.parts || [])
+    let reply = (data.candidates?.[0]?.content?.parts || [])
       .map(part => typeof part.text === "string" ? part.text : "")
       .join("")
       .trim();
 
     if (!reply) return sendJson(res, 502, { error: "Gemini가 텍스트 응답을 반환하지 않았어요." });
+
+    const chunks = data.candidates?.[0]?.groundingMetadata?.groundingChunks || [];
+    const sources = [];
+    const seen = new Set();
+    for (const chunk of chunks) {
+      const web = chunk.web;
+      if (web?.uri && !seen.has(web.uri) && sources.length < 4) {
+        seen.add(web.uri);
+        sources.push(`- ${web.title || "웹 출처"}: ${web.uri}`);
+      }
+    }
+    if (sources.length) reply += "\\n\\n참고한 웹 출처\\n" + sources.join("\\n");
     return sendJson(res, 200, { reply });
   } catch {
     return sendJson(res, 502, { error: "Gemini 서버에 연결하지 못했어요." });
