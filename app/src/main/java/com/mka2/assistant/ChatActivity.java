@@ -38,7 +38,7 @@ public class ChatActivity extends Activity {
         root.setPadding(20, 20, 20, 16);
 
         TextView title = new TextView(this);
-        title.setText("MKA2 비서 · Gemini");
+        title.setText("텐도 아리스 · MKA2");
         title.setTextSize(22);
         root.addView(title);
 
@@ -49,7 +49,7 @@ public class ChatActivity extends Activity {
         scroll.addView(messages);
         root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
 
-        addMessage("안녕하세요! 무엇을 도와드릴까요?", false);
+        addMessage("안녕하세요! 아리스예요. 무엇을 도와드릴까요?", false);
 
         LinearLayout composer = new LinearLayout(this);
         composer.setGravity(Gravity.CENTER_VERTICAL);
@@ -85,6 +85,7 @@ public class ChatActivity extends Activity {
             String query = text.replaceFirst("^검색(해)?\\s*", "");
             if (query.trim().isEmpty()) {
                 addMessage("무엇을 검색할까요?", false);
+                react("question", "question");
                 return;
             }
             promptText = "웹에서 검색하고 최신 결과를 출처와 함께 요약해줘: " + query;
@@ -102,12 +103,14 @@ public class ChatActivity extends Activity {
             history.put(userMessage);
         } catch (Exception e) {
             addMessage("메시지를 준비하지 못했어요. 다시 시도해 주세요.", false);
+            react("question", null);
             return;
         }
 
         sendButton.setEnabled(false);
         input.setEnabled(false);
         addMessage("생각 중...", false);
+        react("question", "confirm");
 
         AssistantApi.send(history, new AssistantApi.Callback() {
             @Override
@@ -115,6 +118,7 @@ public class ChatActivity extends Activity {
                 mainHandler.post(() -> {
                     removeLastMessage();
                     addMessage(answer, false);
+                    reactForAnswer(answer);
                     try {
                         JSONObject modelMessage = new JSONObject();
                         modelMessage.put("role", "model");
@@ -131,10 +135,39 @@ public class ChatActivity extends Activity {
                 mainHandler.post(() -> {
                     removeLastMessage();
                     addMessage(message, false);
+                    react("question", "glitch");
                     setComposerEnabled(true);
                 });
             }
         });
+    }
+
+    private void reactForAnswer(String answer) {
+        String text = answer == null ? "" : answer.toLowerCase(Locale.ROOT);
+        if (containsAny(text, "성공", "완료", "좋아요", "할 수 있어", "자신만만")) {
+            react("confident", "confident");
+        } else if (containsAny(text, "축하", "대단", "최고", "기뻐", "좋다")) {
+            react("happy", "smile");
+        } else if (containsAny(text, "모르겠", "이해하지 못", "무슨 뜻", "잘 이해")) {
+            react("question", "confused");
+        } else if (containsAny(text, "확인했", "알겠", "네!", "좋습니다")) {
+            react("smile", "confirm");
+        } else {
+            react("default", null);
+        }
+    }
+
+    private boolean containsAny(String text, String... words) {
+        for (String word : words) if (text.contains(word)) return true;
+        return false;
+    }
+
+    private void react(String expression, String sound) {
+        Intent intent = new Intent(OverlayService.ACTION_CHARACTER_REACTION);
+        intent.setPackage(getPackageName());
+        intent.putExtra(OverlayService.EXTRA_EXPRESSION, expression);
+        if (sound != null) intent.putExtra(OverlayService.EXTRA_SOUND, sound);
+        sendBroadcast(intent);
     }
 
     private void trimHistory() {
@@ -155,6 +188,7 @@ public class ChatActivity extends Activity {
     private void launchInstalledApp(String requestedName) {
         if (requestedName.isEmpty()) {
             addMessage("실행할 앱 이름을 알려주세요.", false);
+            react("question", "question");
             return;
         }
 
@@ -167,6 +201,7 @@ public class ChatActivity extends Activity {
                 Intent launch = pm.getLaunchIntentForPackage(app.packageName);
                 if (launch != null) {
                     addMessage(label + " 앱을 실행할게요.", false);
+                    react("confident", "confirm");
                     startActivity(launch);
                     return;
                 }
@@ -178,17 +213,19 @@ public class ChatActivity extends Activity {
                 Intent launch = pm.getLaunchIntentForPackage(app.packageName);
                 if (launch != null) {
                     addMessage(label + " 앱을 실행할게요.", false);
+                    react("confident", "confirm");
                     startActivity(launch);
                     return;
                 }
             }
         }
         addMessage("'" + requestedName + "' 앱을 찾지 못했어요. 설치된 앱 이름으로 다시 말해주세요.", false);
+        react("question", "question");
     }
 
     private void addMessage(String text, boolean user) {
         TextView line = new TextView(this);
-        line.setText((user ? "나: " : "비서: ") + text);
+        line.setText((user ? "나: " : "아리스: ") + text);
         line.setTextSize(16);
         line.setPadding(12, 10, 12, 10);
         messages.addView(line);
